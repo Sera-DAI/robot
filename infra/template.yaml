@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Robot - controle do PC por voz (ligar por Wake-on-LAN, desligar por fila SQS e agente). Região us-east-1.
+
+Parameters:
+  SkillId:
+    Type: String
+    Description: ID da skill Smart Home. Só essa skill pode invocar a função.
+    NoEcho: true
+    AllowedPattern: "^amzn1\\.ask\\.skill\\.[0-9a-f-]{36}$"
+  MacDoPc:
+    Type: String
+    Description: MAC da placa de rede do PC, no formato XX-XX-XX-XX-XX-XX.
+    NoEcho: true
+    AllowedPattern: "^([0-9A-Fa-f]{2}-){5}[0-9A-Fa-f]{2}$"
+  LwaClientId:
+    Type: String
+    Description: Alexa Client Id (aba Permissions da skill, Send Alexa Events).
+    NoEcho: true
+  LwaClientSecret:
+    Type: String
+    Description: Alexa Client Secret (mesma tela).
+    NoEcho: true
+
+Resources:
+  TabelaTokens:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: robot-tokens
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      BillingMode: PROVISIONED
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+
+  # Comandos para o agente do PC. Retenção de 60 s: comando velho some sozinho e
+  # nunca desliga o PC muito depois de pedido.
+  FilaComandos:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: robot-comandos
+      MessageRetentionPeriod: 60
+      VisibilityTimeout: 30
+      ReceiveMessageWaitTimeSeconds: 20
+      SqsManagedSseEnabled: true
+
+  # Identidade do agente do PC: só lê e apaga mensagens desta fila. A chave de acesso
+  # é criada à mão (infra/README.md), para o segredo nunca passar pelo CloudFormation.
+  UsuarioAgente:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: robot-agente
+      Policies:
+        - PolicyName: consumir-fila-de-comandos
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                Resource: !GetAtt FilaComandos.Arn
+
+  LogsFuncao:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /aws/lambda/robot-lambda
+      RetentionInDays: 14
+
+  FuncaoRobot:
+    Type: AWS::Serverless::Function
+    DependsOn: LogsFuncao
+    Properties:
+      FunctionName: robot-lambda
+      CodeUri: ../lambda/
+      Handler: robot_lambda.handler.lidar
+      Runtime: python3.13
+      Timeout: 15
+      MemorySize: 128
+      EventInvokeConfig:
+        MaximumRetryAttempts: 0  # sem retentativa automática: evita WakeUp e Response duplicados
+      Environment:
+        Variables:
+          TABELA_TOKENS: !Ref TabelaTokens
+          ROBOT_MAC: !Ref MacDoPc
+          LWA_CLIENT_ID: !Ref LwaClientId
+          LWA_CLIENT_SECRET: !Ref LwaClientSecret
+          ROBOT_ENDPOINT_ID: pc-principal
+          FILA_URL: !Ref FilaComandos
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+              Resource: !GetAtt TabelaTokens.Arn
+            - Effect: Allow
+              Action: sqs:SendMessage
+              Resource: !GetAtt FilaComandos.Arn
+            - Effect: Allow
+              Action: lambda:InvokeFunction
+              Resource: !Sub "arn:${AWS::Partition}:lambda:${AWS::Region}:${AWS::AccountId}:function:robot-lambda"
+
+  # Gatilho Smart Home. O evento AlexaSkill do SAM usa o principal de skill custom
+  # (alexa-appkit) e o console recusa o ARN; Smart Home exige alexa-connectedhome.
+  PermissaoAlexaSmartHome:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt FuncaoRobot.Arn
+      Principal: alexa-connectedhome.amazon.com
+      EventSourceToken: !Ref SkillId
+
+Outputs:
+  FilaUrl:
+    Description: URL da fila de comandos, pedida pela configuração do agente. Não vai para o Git.
+    Value: !Ref FilaComandos
