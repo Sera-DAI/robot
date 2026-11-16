@@ -1,79 +1,86 @@
-# Infra (AWS SAM)
+# Infrastructure (AWS SAM)
 
-Região `us-east-1`, a que a documentação da Alexa listava para pt-BR em 10/11/2026 (conferir na
-documentação vigente antes do deploy).
-O template cria a Lambda `robot-lambda`, a tabela `robot-tokens`, a fila `robot-comandos` e o
-usuário IAM `robot-agente` (só lê e apaga mensagens dessa fila).
+Region `us-east-1`, the one the Alexa documentation listed for Portuguese (Brazil) on 2026-11-10
+(check the current documentation before deploying).
+The template creates the Lambda `robot-lambda`, the table `robot-tokens`, the queue `robot-comandos`
+and the IAM user `robot-agente` (it can only read and delete messages from that queue).
 
-## Antes do deploy
+For a full walkthrough from zero, including the Alexa console and the Windows agent, see
+[`docs/installation-guide.md`](../docs/installation-guide.md).
 
-1. Fase 1 e 2 do plano concluídas.
-2. Criar a skill Smart Home em modo de desenvolvimento no Alexa Developer Console, com idioma
-   Português (Brasil), e anotar o ID da skill.
-3. Em Permissions, ligar "Send Alexa Events" e anotar o Alexa Client Id e o Alexa Client Secret.
+## Before the deploy
 
-## Deploy manual
+1. Phases 1 and 2 of the plan are done.
+2. Create the Smart Home skill in development mode in the Alexa Developer Console, with the language
+   Portuguese (Brazil), and note the skill ID.
+3. Under Permissions, turn on "Send Alexa Events" and note the Alexa Client Id and Alexa Client Secret.
+
+## Manual deploy
 
 ```
 sam build --template infra/template.yaml
 sam deploy --guided --template infra/template.yaml --region us-east-1 --profile robot --capabilities CAPABILITY_NAMED_IAM
 ```
 
-O `--guided` pergunta os quatro parâmetros (`SkillId`, `MacDoPc`, `LwaClientId`, `LwaClientSecret`).
-O MAC exige o formato `XX-XX-XX-XX-XX-XX`, com hífens.
-Eles ficam só na AWS. O `samconfig.toml` está no `.gitignore` e não pode ser commitado.
+`--guided` asks for the four parameters (`SkillId`, `PcMac`, `LwaClientId`, `LwaClientSecret`).
+The MAC must use the format `XX-XX-XX-XX-XX-XX`, with hyphens.
+They live only in AWS. `samconfig.toml` is in `.gitignore` and must never be committed.
 
-Depois do deploy, copie o ARN da função para o campo "Default endpoint" da skill.
+After the deploy, copy the function ARN into the skill's "Default endpoint" field.
 
-O `--capabilities CAPABILITY_NAMED_IAM` é necessário a partir da fase 4, porque o template cria um
-usuário IAM com nome fixo. Sem ele o deploy falha.
+`--capabilities CAPABILITY_NAMED_IAM` is required from phase 4 on, because the template creates an
+IAM user with a fixed name. Without it the deploy fails.
 
-## Fase 4: fila, agente e desligar
+## Phase 4: queue, agent and turning off
 
-1. Refaça o deploy (comandos acima). A saída `FilaUrl` mostra a URL da fila; ela contém o número
-   da conta e não vai para o Git.
-2. Crie a chave de acesso do agente. O segredo aparece uma única vez, só no terminal:
+1. Deploy again (commands above). The `QueueUrl` output shows the queue URL; it contains the account
+   number and does not go into Git.
+2. Create the agent's access key. The secret appears only once, only in the terminal:
 
    ```
    aws iam create-access-key --user-name robot-agente --profile robot
    ```
 
-3. Instale o agente no PC seguindo `agente/README.md`. O segredo é digitado na configuração do
-   agente e vai para o Credential Manager; não o salve em arquivo. Feche o terminal depois.
+3. Install the agent on the PC following `agent/README.md`. The secret is typed into the agent's
+   configuration and goes to the Credential Manager; do not save it in a file. Close the terminal
+   afterwards.
 
-### Aceite da fase 4 (manual, na plataforma)
+### Phase 4 acceptance (manual, on the platform)
 
-Salve o que estiver aberto antes: os testes desligam o PC de verdade.
+Save whatever is open first: these tests really shut the PC down.
 
-1. Com o agente rodando, abra a fila `robot-comandos` no console do SQS, "Enviar e receber
-   mensagens", e envie uma mensagem fora da lista, por exemplo `{"versao": 1, "acao": "reboot"}`.
-   Nada deve acontecer, e o log do agente deve registrar o descarte.
-2. Envie `{"versao": 1, "acao": "shutdown"}`. O Windows deve avisar e desligar em 30 s
-   (`shutdown /a` cancela).
-3. Ligue o PC e, sem entrar na conta (tela de login), diga "Alexa, desligar o PC". Deve desligar.
-4. Com o PC desligado, diga "Alexa, desligar o PC" e ligue o PC em seguida. Ele deve ficar ligado.
-5. "Alexa, ligar o PC" deve continuar funcionando.
+1. With the agent running, open the `robot-comandos` queue in the SQS console, "Send and receive
+   messages", and send a message outside the list, for example `{"versao": 1, "acao": "reboot"}`.
+   Nothing should happen, and the agent log should record the discard.
+2. Send `{"versao": 1, "acao": "shutdown"}`. Windows should warn and shut down in 30 s
+   (`shutdown /a` cancels).
+3. Turn the PC on and, without signing in (login screen), say "Alexa, desligar o PC". It should shut down.
+4. With the PC off, say "Alexa, desligar o PC" and then turn the PC on. It should stay on.
+5. "Alexa, ligar o PC" should keep working.
 
-Se o agente foi registrado com `-Gatilho Logon`, faça o passo 3 depois de entrar na conta e anote isso no resultado.
+If the agent was registered with `-Trigger Logon`, do step 3 after signing in and note that in the result.
 
-Para trocar a chave do agente, sempre com o nome do usuário, para não mexer em outra chave:
+To rotate the agent's key, always use the user name so you do not touch another key:
 
 ```
 aws iam list-access-keys --user-name robot-agente --profile robot
-aws iam delete-access-key --user-name robot-agente --access-key-id ID_DA_CHAVE_ANTIGA --profile robot
+aws iam delete-access-key --user-name robot-agente --access-key-id OLD_KEY_ID --profile robot
 aws iam create-access-key --user-name robot-agente --profile robot
 ```
 
-Depois rode de novo `python -m robot_agente.configurar`.
+Then run `python -m robot_agent.configure` again.
 
-## Limitações conhecidas
+## Known limitations
 
-- Os testes automáticos não exercitam a Alexa, o Wake-on-LAN nem a Lambda implantada.
-- A invocação interna (`robot_interno`) não é assinada: quem tem `lambda:InvokeFunction` na conta consegue
-  disparar um "ligar" legítimo. Aceito por ser skill pessoal; reavaliar se a skill for publicada.
-- Os parâmetros viram variáveis de ambiente da Lambda e ficam visíveis a quem tem acesso ao console da conta.
-- O estado de energia não é consultado: a Alexa não sabe se o PC está ligado, e responde "ok" ao
-  desligar mesmo que o agente esteja parado.
-- A chave do `robot-agente` é de longa duração. Ela só lê e apaga mensagens da fila: quem a obtiver
-  consegue no máximo impedir um desligamento, nunca provocar um.
-- Quem tem `sqs:SendMessage` na conta consegue desligar o PC. Aceito por ser conta pessoal.
+- The automated tests do not exercise Alexa, Wake-on-LAN or the deployed Lambda.
+- The internal invocation (`robot_interno`) is not signed: anyone with `lambda:InvokeFunction` in the
+  account can trigger a legitimate "turn on". Accepted because this is a personal skill; reassess if
+  the skill is published.
+- The parameters become Lambda environment variables and are visible to anyone with access to the
+  account's console.
+- Power state is not queried: Alexa does not know whether the PC is on, and answers "ok" to turning
+  off even if the agent is stopped.
+- The `robot-agente` key is long-lived. It can only read and delete messages from the queue: whoever
+  gets it can at most prevent a shutdown, never cause one.
+- Anyone with `sqs:SendMessage` in the account can shut the PC down. Accepted because this is a
+  personal account.

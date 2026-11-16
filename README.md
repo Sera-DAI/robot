@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="docs/imagens/banner.svg" alt="Robot: voice control for your PC with Alexa" width="100%">
+  <img src="docs/images/banner.svg" alt="Robot: voice control for your PC with Alexa" width="100%">
 </p>
-
-<p align="center"><b>English</b> · <a href="README.pt-BR.md">Português</a></p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.13-f4f4f4?style=flat-square&labelColor=050505&logo=python&logoColor=f4f4f4" alt="Python 3.13">
@@ -10,23 +8,23 @@
   <img src="https://img.shields.io/badge/aws-lambda%20%C2%B7%20sqs-f4f4f4?style=flat-square&labelColor=050505&logo=awslambda&logoColor=f4f4f4" alt="AWS Lambda and SQS">
   <img src="https://img.shields.io/badge/agent-windows%20%C2%B7%20stdlib%20only-a8a8a8?style=flat-square&labelColor=050505" alt="Windows agent, standard library only">
   <img src="https://img.shields.io/badge/cost-R%24%200-a8a8a8?style=flat-square&labelColor=050505" alt="Target cost R$ 0">
-  <img src="https://img.shields.io/badge/phases-1%20to%204%20accepted-a8a8a8?style=flat-square&labelColor=050505" alt="Phases 1 to 4 accepted">
+  <img src="https://img.shields.io/badge/phases-1%20to%205%20accepted-a8a8a8?style=flat-square&labelColor=050505" alt="Phases 1 to 5 accepted">
 </p>
 
 <p align="center">
-  <img src="docs/imagens/stack/python.svg" width="44" alt="Python" title="Python">
-  <img src="docs/imagens/stack/amazonalexa.svg" width="44" alt="Alexa" title="Alexa">
-  <img src="docs/imagens/stack/awslambda.svg" width="44" alt="AWS Lambda" title="AWS Lambda">
-  <img src="docs/imagens/stack/amazonsqs.svg" width="44" alt="Amazon SQS" title="Amazon SQS">
-  <img src="docs/imagens/stack/githubactions.svg" width="44" alt="GitHub Actions" title="GitHub Actions">
-  <img src="docs/imagens/stack/claude.svg" width="44" alt="Claude" title="Claude">
+  <img src="docs/images/stack/python.svg" width="44" alt="Python" title="Python">
+  <img src="docs/images/stack/amazonalexa.svg" width="44" alt="Alexa" title="Alexa">
+  <img src="docs/images/stack/awslambda.svg" width="44" alt="AWS Lambda" title="AWS Lambda">
+  <img src="docs/images/stack/amazonsqs.svg" width="44" alt="Amazon SQS" title="Amazon SQS">
+  <img src="docs/images/stack/githubactions.svg" width="44" alt="GitHub Actions" title="GitHub Actions">
+  <img src="docs/images/stack/claude.svg" width="44" alt="Claude" title="Claude">
 </p>
 
 <p align="center"><sub>Built with Python, AWS SAM, GitHub Actions and Claude</sub></p>
 
-<p align="center"><img src="docs/imagens/divisor.svg" width="420" alt=""></p>
+<p align="center"><img src="docs/images/divider.svg" width="420" alt=""></p>
 
-> **Showcase repository, read-only.** This is a cut of the project: only the code, the tests and the infrastructure template. It holds no data or secrets and does not accept contributions. The code can be read but not copied or reused without written permission: see the [LICENSE](LICENSE).
+> **Public repository.** This is a cut of the project: only the code, the tests, the infrastructure template and the installation guide. It holds no data or secrets and does not accept contributions. Anyone can use, copy and modify it under the [MIT license](LICENSE).
 
 # Robot
 
@@ -45,18 +43,20 @@
 
 <table>
   <tr>
-    <td width="72" align="center"><img src="docs/imagens/icones/ligar.svg" width="44" alt=""></td>
+    <td width="72" align="center"><img src="docs/images/icons/turn-on.svg" width="44" alt=""></td>
     <td><b>Turn on</b><br>"Alexa, turn on the PC" makes the Echo broadcast a Wake-on-LAN packet and the PC wakes up.</td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/imagens/icones/desligar.svg" width="44" alt=""></td>
+    <td align="center"><img src="docs/images/icons/desturn-on.svg" width="44" alt=""></td>
     <td><b>Turn off</b><br>"Alexa, turn off the PC" becomes an action in a queue, and an agent on the PC shuts Windows down.</td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/imagens/icones/seguranca.svg" width="44" alt=""></td>
+    <td align="center"><img src="docs/images/icons/security.svg" width="44" alt=""></td>
     <td><b>Outbound connections only</b><br>The PC never opens a port to the internet: the agent is the one that fetches the action from the queue.</td>
   </tr>
 </table>
+
+> **Want to run it yourself?** Follow the [installation guide](docs/installation-guide.md).
 
 > **Language note.** The skill is validated in Brazilian Portuguese, so today the phrases Alexa recognizes are "Alexa, ligar o PC" and "Alexa, desligar o PC". The English phrases above are their translation.
 
@@ -64,15 +64,15 @@
 
 <table>
   <tr>
-    <td width="72" align="center"><img src="docs/imagens/icones/voz.svg" width="44" alt=""></td>
+    <td width="72" align="center"><img src="docs/images/icons/voice.svg" width="44" alt=""></td>
     <td><b>Turn on</b><br>The Smart Home skill (development mode) answers with <code>DeferredResponse</code>, sends a <code>WakeUp</code> event to the Alexa gateway, and the Echo broadcasts the Wake-on-LAN packet.</td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/imagens/icones/fila.svg" width="44" alt=""></td>
+    <td align="center"><img src="docs/images/icons/queue.svg" width="44" alt=""></td>
     <td><b>Turn off, in the cloud</b><br>The Lambda writes a <code>shutdown</code> action to an SQS queue with 60 s retention.</td>
   </tr>
   <tr>
-    <td align="center"><img src="docs/imagens/icones/agente.svg" width="44" alt=""></td>
+    <td align="center"><img src="docs/images/icons/agent.svg" width="44" alt=""></td>
     <td><b>Turn off, on the PC</b><br>A Python agent consumes the queue and shuts Windows down. It only runs actions from a fixed list, never an arbitrary command.</td>
   </tr>
 </table>
@@ -86,8 +86,8 @@
 
 <table>
   <tr>
-    <td width="72" align="center"><img src="docs/imagens/icones/estado.svg" width="44" alt=""></td>
-    <td>Phases 1 to 4 accepted: "Alexa, turn on the PC" and "Alexa, turn off the PC" work. The agent starts at logon, so turning off does not work while the PC sits at the login screen. Phase 5 (hardening) is still missing.</td>
+    <td width="72" align="center"><img src="docs/images/icons/status.svg" width="44" alt=""></td>
+    <td>Phases 1 to 5 accepted: "Alexa, turn on the PC" and "Alexa, turn off the PC" work, including on the login screen, because the agent runs under a dedicated account at startup.</td>
   </tr>
 </table>
 
@@ -95,14 +95,14 @@
 
 <table>
   <tr>
-    <td width="72" align="center"><img src="docs/imagens/icones/estrutura.svg" width="44" alt=""></td>
+    <td width="72" align="center"><img src="docs/images/icons/structure.svg" width="44" alt=""></td>
     <td>
       <table>
         <tr><th align="left">Folder</th><th align="left">Contents</th></tr>
         <tr><td><code>lambda/</code></td><td>Lambda code (Python) and its tests</td></tr>
-        <tr><td><code>agente/</code></td><td>The PC agent (Windows) and its tests; install steps in <code>agente/README.md</code></td></tr>
+        <tr><td><code>agent/</code></td><td>The PC agent (Windows) and its tests; install steps in <code>agent/README.md</code></td></tr>
         <tr><td><code>infra/</code></td><td>AWS SAM template</td></tr>
-        <tr><td><code>docs/</code></td><td>This README's images</td></tr>
+        <tr><td><code>docs/</code></td><td>The installation guide and this README's images</td></tr>
         <tr><td><code>scripts/</code></td><td>Local and CI verification; the image generator</td></tr>
       </table>
     </td>
@@ -113,25 +113,25 @@
 
 <table>
   <tr>
-    <td width="72" align="center"><img src="docs/imagens/icones/verificar.svg" width="44" alt=""></td>
+    <td width="72" align="center"><img src="docs/images/icons/verify.svg" width="44" alt=""></td>
     <td>The tests use no network and no AWS, and never shut down any machine.</td>
   </tr>
 </table>
 
 ```bash
-python scripts/verificar.py --rapido     # before every commit
-python scripts/verificar.py --completo   # before opening a PR
+python scripts/verify.py --quick     # before every commit
+python scripts/verify.py --full      # before opening a PR
 ```
 
 ## VI. Configuration and security
 
 <table>
   <tr>
-    <td width="72" align="center"><img src="docs/imagens/icones/config.svg" width="44" alt=""></td>
-    <td>Secrets, account identifiers and the network card's MAC address never go into Git. They are passed as <code>sam deploy</code> parameters and live only in AWS. See <code>infra/README.md</code>. The agent's access key lives in the Windows Credential Manager. See <code>agente/README.md</code>.</td>
+    <td width="72" align="center"><img src="docs/images/icons/config.svg" width="44" alt=""></td>
+    <td>Secrets, account identifiers and the network card's MAC address never go into Git. They are passed as <code>sam deploy</code> parameters and live only in AWS. See <code>infra/README.md</code>. The agent's access key lives in the Windows Credential Manager. See <code>agent/README.md</code>.</td>
   </tr>
 </table>
 
-<p align="center"><img src="docs/imagens/divisor.svg" width="420" alt=""></p>
+<p align="center"><img src="docs/images/divider.svg" width="420" alt=""></p>
 
-<p align="center"><sub>Images generated by <code>scripts/gerar_imagens.py</code> · fonts and licenses in <code>docs/imagens/FONTES.md</code></sub></p>
+<p align="center"><sub>Images generated by <code>scripts/generate_images.py</code> · fonts and licenses in <code>docs/images/SOURCES.md</code></sub></p>
