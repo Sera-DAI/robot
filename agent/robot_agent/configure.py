@@ -15,6 +15,9 @@ from .adapters.sqs import region_from_url
 from .errors import AgentError
 
 ID_FORMAT = re.compile(r"^[A-Z0-9]{16,32}$")
+# AWS secrets are 40 base64 characters. Ctrl+V in a hidden Windows prompt types a control
+# character instead of pasting, so anything else is refused here instead of failing later with HTTP 403.
+SECRET_FORMAT = re.compile(r"^[A-Za-z0-9/+=]{30,128}$")
 
 
 def main() -> int:
@@ -28,6 +31,9 @@ def main() -> int:
         secret = getpass.getpass("Key secret (not shown on screen): ").strip()
         if not secret:
             print("Empty secret.")
+            return 2
+        if not SECRET_FORMAT.match(secret):
+            print("Secret outside the expected format. Paste it with a right click, not Ctrl+V.")
             return 2
         credentials.write(key_id, secret)
         file = config.write_queue_url(url)

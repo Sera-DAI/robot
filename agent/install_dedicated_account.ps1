@@ -16,16 +16,25 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
     [Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) { throw "Open PowerShell as administrator." }
 
+# Task Scheduler cannot resolve the ".\name" shorthand (error 0x80070534), so qualify with the computer name.
+$qualifiedAccount = "$env:COMPUTERNAME\$Account"
 $appFolder = Join-Path $env:ProgramData "robot-agente\app"
 $hiddenAccounts = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\UserList"
 
 if ($Remove) {
     Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
-    if (Get-LocalUser -Name $Account -ErrorAction SilentlyContinue) { Remove-LocalUser -Name $Account }
+    # Stop the running agent first, otherwise its profile is in use and cannot be deleted.
+    Get-Process -IncludeUserName -ErrorAction SilentlyContinue | Where-Object { $_.UserName -like "*\$Account" } | Stop-Process -Force
+    Start-Sleep -Seconds 3
+    $user = Get-LocalUser -Name $Account -ErrorAction SilentlyContinue
+    if ($user) {
+        # Delete the profile too: a recreated account gets a new SID and cannot write to the old profile folder.
+        Get-CimInstance Win32_UserProfile | Where-Object { $_.SID -eq $user.SID.Value } | Remove-CimInstance
+        Remove-LocalUser -Name $Account
+    }
     Remove-ItemProperty -Path $hiddenAccounts -Name $Account -ErrorAction SilentlyContinue
     if (Test-Path (Split-Path -Parent $appFolder)) { Remove-Item -Recurse -Force (Split-Path -Parent $appFolder) }
     Write-Host "Task, account '$Account' and agent copy removed."
-    Write-Host "The account profile folder under $env:SystemDrive\Users can be deleted by hand."
     return
 }
 
@@ -67,6 +76,23 @@ New-ItemProperty -Path $hiddenAccounts -Name $Account -PropertyType DWord -Value
 # 4. Permissions: administrators and SYSTEM control the folder; the dedicated account can only read and run.
 icacls $appFolder /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "${Account}:(OI)(CI)RX" | Out-Null
 
+# 4b. Allow the account to log on as a batch job, which Task Scheduler needs to start the task (error 0x80070569 otherwise).
+$accountSid = (New-Object System.Security.Principal.NTAccount($qualifiedAccount)).Translate([System.Security.Principal.SecurityIdentifier]).Value
+$rightsFile = Join-Path $env:TEMP "robot-agente-rights.inf"
+$rightsDb = Join-Path $env:TEMP "robot-agente-rights.sdb"
+secedit /export /cfg $rightsFile /areas USER_RIGHTS | Out-Null
+$rights = Get-Content $rightsFile
+if ($rights -match "^SeBatchLogonRight") {
+    $rights = $rights | ForEach-Object {
+        if ($_ -match "^SeBatchLogonRight" -and $_ -notmatch [regex]::Escape($accountSid)) { "$_,*$accountSid" } else { $_ }
+    }
+} else {
+    $rights = $rights | ForEach-Object { $_; if ($_ -match "^\[Privilege Rights\]") { "SeBatchLogonRight = *$accountSid" } }
+}
+$rights | Set-Content -Path $rightsFile -Encoding Unicode
+secedit /configure /db $rightsDb /cfg $rightsFile /areas USER_RIGHTS | Out-Null
+Remove-Item $rightsFile, $rightsDb -ErrorAction SilentlyContinue
+
 # 5. Scheduled task at startup under the dedicated account (the password stays only in Task Scheduler).
 $action = New-ScheduledTaskAction -Execute $pythonw -Argument "-m robot_agent" -WorkingDirectory $appFolder
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable `
@@ -74,11 +100,11 @@ $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoi
     -MultipleInstances IgnoreNew
 $trigger = New-ScheduledTaskTrigger -AtStartup
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings `
-    -User ".\$Account" -Password $plainPassword -RunLevel Limited -Force | Out-Null
+    -User $qualifiedAccount -Password $plainPassword -RunLevel Limited -Force | Out-Null
 
 # 6. Access key in the dedicated account's Credential Manager: the setup runs as that account, in another window.
 Write-Host "Another window will open to enter the queue URL, key ID and secret of the robot-agente key."
-$credential = New-Object System.Management.Automation.PSCredential(".\$Account", $password)
+$credential = New-Object System.Management.Automation.PSCredential($qualifiedAccount, $password)
 Start-Process -FilePath $python -ArgumentList "-m", "robot_agent.configure" -WorkingDirectory $appFolder `
     -Credential $credential -LoadUserProfile -Wait
 $plainPassword = $null

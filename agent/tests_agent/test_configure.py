@@ -8,7 +8,7 @@ from robot_agent.errors import CredentialError
 
 URL = "https://sqs.us-east-1.amazonaws.com/000000000000/robot-comandos"
 FICTIONAL_ID = "AKIDEXAMPLE0123456"  # 18 characters, example format
-FICTIONAL_SECRET = "fictional-test-secret"
+FICTIONAL_SECRET = "wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY"  # AWS documentation example
 
 
 class Configure(unittest.TestCase):
@@ -53,6 +53,14 @@ class Configure(unittest.TestCase):
         self.assertEqual(code, 2)
         written.assert_not_called()
         self.assertFalse(exists)
+
+    def test_a_secret_with_a_control_character_writes_nothing(self):
+        for bad in ("\x16", "short", "x" * 39 + "\x16"):
+            with self.subTest(bad=repr(bad)):
+                code, write, _, exists = self.run_configure([URL, FICTIONAL_ID], secret=bad)
+                self.assertEqual(code, 2)
+                write.assert_not_called()
+                self.assertFalse(exists)
 
     def test_windows_refusing_the_credential_does_not_write_the_url(self):
         code, _, _, exists = self.run_configure([URL, FICTIONAL_ID], write=CredentialError("refused"))
